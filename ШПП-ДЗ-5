@@ -1,0 +1,193 @@
+#include <iostream>
+#include <map>
+#include <string>
+#include <fstream>
+#include <mutex>
+#include <thread>
+#include <vector>
+
+using namespace std;
+
+class ConfigurationManager {
+private:
+    static ConfigurationManager* instance;
+    static mutex mtx;
+    map<string, string> settings;
+
+    ConfigurationManager() {}
+
+public:
+    ConfigurationManager(const ConfigurationManager&) = delete;
+    ConfigurationManager& operator=(const ConfigurationManager&) = delete;
+
+    static ConfigurationManager* GetInstance() {
+        lock_guard<mutex> lock(mtx);
+        if (instance == nullptr)
+            instance = new ConfigurationManager();
+        return instance;
+    }
+
+    void SetSetting(const string& key, const string& value) {
+        settings[key] = value;
+    }
+
+    string GetSetting(const string& key) {
+        if (settings.find(key) == settings.end())
+            throw runtime_error("Setting not found");
+        return settings[key];
+    }
+
+    void SaveToFile(const string& file) {
+        ofstream out(file);
+        for (auto& s : settings)
+            out << s.first << "=" << s.second << endl;
+        out.close();
+    }
+
+    void LoadFromFile(const string& file) {
+        ifstream in(file);
+        string line;
+        while (getline(in, line)) {
+            size_t pos = line.find('=');
+            if (pos != string::npos)
+                settings[line.substr(0, pos)] = line.substr(pos + 1);
+        }
+        in.close();
+    }
+};
+
+ConfigurationManager* ConfigurationManager::instance = nullptr;
+mutex ConfigurationManager::mtx;
+
+class Report {
+public:
+    string header;
+    string content;
+    string footer;
+
+    void Show() const {
+        cout << header << endl << content << endl << footer << endl;
+    }
+};
+
+class IReportBuilder {
+public:
+    virtual void SetHeader(const string&) = 0;
+    virtual void SetContent(const string&) = 0;
+    virtual void SetFooter(const string&) = 0;
+    virtual Report GetReport() = 0;
+    virtual ~IReportBuilder() {}
+};
+
+class TextReportBuilder : public IReportBuilder {
+    Report report;
+public:
+    void SetHeader(const string& h) override { report.header = h; }
+    void SetContent(const string& c) override { report.content = c; }
+    void SetFooter(const string& f) override { report.footer = f; }
+    Report GetReport() override { return report; }
+};
+
+class HtmlReportBuilder : public IReportBuilder {
+    Report report;
+public:
+    void SetHeader(const string& h) override { report.header = "<h1>" + h + "</h1>"; }
+    void SetContent(const string& c) override { report.content = "<p>" + c + "</p>"; }
+    void SetFooter(const string& f) override { report.footer = "<footer>" + f + "</footer>"; }
+    Report GetReport() override { return report; }
+};
+
+class ReportDirector {
+public:
+    void Construct(IReportBuilder& builder) {
+        builder.SetHeader("Otchet");
+        builder.SetContent("Bul report mazmuny");
+        builder.SetFooter("Ayaqtaldy");
+    }
+};
+
+class Product {
+public:
+    string name;
+    double price;
+    int quantity;
+
+    Product* Clone() const {
+        return new Product(*this);
+    }
+};
+
+class Discount {
+public:
+    string description;
+    double amount;
+
+    Discount* Clone() const {
+        return new Discount(*this);
+    }
+};
+
+class Order {
+public:
+    vector<Product*> products;
+    vector<Discount*> discounts;
+    double deliveryCost;
+    string paymentMethod;
+
+    ~Order() {
+        for (auto p : products) delete p;
+        for (auto d : discounts) delete d;
+    }
+
+    Order* Clone() const {
+        Order* copy = new Order();
+        copy->deliveryCost = deliveryCost;
+        copy->paymentMethod = paymentMethod;
+
+        for (auto p : products)
+            copy->products.push_back(p->Clone());
+
+        for (auto d : discounts)
+            copy->discounts.push_back(d->Clone());
+
+        return copy;
+    }
+};
+
+int main() {
+    // Singleton test
+    auto task = []() {
+        cout << "Singleton instance: "
+             << ConfigurationManager::GetInstance() << endl;
+    };
+    thread t1(task), t2(task);
+    t1.join(); t2.join();
+
+    // Builder test
+    ReportDirector director;
+    TextReportBuilder textBuilder;
+    director.Construct(textBuilder);
+    textBuilder.GetReport().Show();
+
+    HtmlReportBuilder htmlBuilder;
+    director.Construct(htmlBuilder);
+    htmlBuilder.GetReport().Show();
+
+    // Prototype test
+    Order* baseOrder = new Order();
+    baseOrder->deliveryCost = 1500;
+    baseOrder->paymentMethod = "Karta";
+    baseOrder->products.push_back(new Product{"Laptop", 300000, 1});
+    baseOrder->discounts.push_back(new Discount{"10%", 10});
+
+    Order* cloneOrder = baseOrder->Clone();
+    cloneOrder->paymentMethod = "Nalq";
+
+    cout << "Base payment: " << baseOrder->paymentMethod << endl;
+    cout << "Clone payment: " << cloneOrder->paymentMethod << endl;
+
+    delete baseOrder;
+    delete cloneOrder;
+
+    return 0;
+}
