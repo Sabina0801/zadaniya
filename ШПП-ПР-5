@@ -1,0 +1,222 @@
+#include <iostream>
+#include <fstream>
+#include <mutex>
+#include <memory>
+#include <thread>
+#include <vector>
+#include <ctime>
+#include <string>
+
+using namespace std;
+
+enum class LogLevel {
+    INFO = 0,
+    WARNING = 1,
+    ERROR = 2
+};
+
+class Logger {
+private:
+    static shared_ptr<Logger> instance;
+    static mutex instanceMutex;
+    mutex logMutex;
+
+    LogLevel currentLevel;
+    string logFile;
+
+    // PRIVATE конструктор
+    Logger() {
+        currentLevel = LogLevel::INFO;
+        logFile = "app.log";
+    }
+
+    string LevelToString(LogLevel level) {
+        if (level == LogLevel::INFO) return "INFO";
+        if (level == LogLevel::WARNING) return "WARNING";
+        return "ERROR";
+    }
+
+public:
+    Logger(const Logger&) = delete;
+    Logger& operator=(const Logger&) = delete;
+
+    static shared_ptr<Logger> GetInstance() {
+        lock_guard<mutex> lock(instanceMutex);
+        if (!instance)
+            instance.reset(new Logger());
+        return instance;
+    }
+
+    void SetLogLevel(LogLevel level) {
+        currentLevel = level;
+    }
+
+    void Log(const string& msg, LogLevel level) {
+        if ((int)level < (int)currentLevel) return;
+
+        lock_guard<mutex> lock(logMutex);
+        ofstream file(logFile, ios::app);
+
+        time_t now = time(nullptr);
+        file << ctime(&now)
+             << "[" << LevelToString(level) << "] "
+             << msg << endl;
+
+        file.close();
+    }
+};
+
+shared_ptr<Logger> Logger::instance = nullptr;
+mutex Logger::instanceMutex;
+
+void ThreadFunc(int id) {
+    auto logger = Logger::GetInstance();
+    logger->Log("Thread " + to_string(id) + " INFO", LogLevel::INFO);
+    logger->Log("Thread " + to_string(id) + " WARNING", LogLevel::WARNING);
+    logger->Log("Thread " + to_string(id) + " ERROR", LogLevel::ERROR);
+}
+
+/* =========================
+   BUILDER – REPORT
+   ========================= */
+
+struct ReportStyle {
+    string bgColor;
+    string fontColor;
+    int fontSize;
+};
+
+class Report {
+public:
+    string header, content, footer;
+    vector<string> sections;
+
+    void Export() {
+        cout << header << endl;
+        for (auto& s : sections)
+            cout << s << endl;
+        cout << content << endl;
+        cout << footer << endl;
+    }
+};
+
+class IReportBuilder {
+public:
+    virtual void SetHeader(const string&) = 0;
+    virtual void SetContent(const string&) = 0;
+    virtual void SetFooter(const string&) = 0;
+    virtual void AddSection(const string&, const string&) = 0;
+    virtual void SetStyle(const ReportStyle&) = 0;
+    virtual Report GetReport() = 0;
+    virtual ~IReportBuilder() {}
+};
+
+class TextReportBuilder : public IReportBuilder {
+private:
+    Report report;
+public:
+    void SetHeader(const string& h) override { report.header = h; }
+    void SetContent(const string& c) override { report.content = c; }
+    void SetFooter(const string& f) override { report.footer = f; }
+    void AddSection(const string& n, const string& c) override {
+        report.sections.push_back(n + ": " + c);
+    }
+    void SetStyle(const ReportStyle&) override {}
+    Report GetReport() override { return report; }
+};
+
+class ReportDirector {
+public:
+    void Construct(IReportBuilder& builder) {
+        builder.SetHeader("=== REPORT ===");
+        builder.AddSection("Bolim", "Builder Pattern");
+        builder.SetContent("Negizgi mazmun");
+        builder.SetFooter("=== END ===");
+    }
+};
+
+/* =========================
+   PROTOTYPE – GAME CHARACTER
+   ========================= */
+
+class Skill {
+public:
+    string name;
+    Skill(const string& n) : name(n) {}
+    Skill* Clone() { return new Skill(*this); }
+};
+
+class Weapon {
+public:
+    int damage;
+    Weapon(int d) : damage(d) {}
+    Weapon* Clone() { return new Weapon(*this); }
+};
+
+class Armor {
+public:
+    int defense;
+    Armor(int d) : defense(d) {}
+    Armor* Clone() { return new Armor(*this); }
+};
+
+class Character {
+public:
+    int hp, strength, agility, intelligence;
+    Weapon* weapon;
+    Armor* armor;
+    vector<Skill*> skills;
+
+    Character(int h, int s, int a, int i)
+        : hp(h), strength(s), agility(a), intelligence(i),
+          weapon(nullptr), armor(nullptr) {}
+
+    Character* Clone() {
+        Character* clone = new Character(*this);
+        clone->weapon = weapon ? weapon->Clone() : nullptr;
+        clone->armor = armor ? armor->Clone() : nullptr;
+
+        clone->skills.clear();
+        for (auto s : skills)
+            clone->skills.push_back(s->Clone());
+
+        return clone;
+    }
+};
+
+/* =========================
+   MAIN – TEST
+   ========================= */
+
+int main() {
+
+    // Singleton + multithread test
+    auto logger = Logger::GetInstance();
+    logger->SetLogLevel(LogLevel::INFO);
+
+    vector<thread> threads;
+    for (int i = 0; i < 5; i++)
+        threads.emplace_back(ThreadFunc, i);
+    for (auto& t : threads)
+        t.join();
+
+    // Builder test
+    TextReportBuilder builder;
+    ReportDirector director;
+    director.Construct(builder);
+    Report report = builder.GetReport();
+    report.Export();
+
+    // Prototype test
+    Character hero(100, 10, 8, 6);
+    hero.weapon = new Weapon(50);
+    hero.armor = new Armor(20);
+    hero.skills.push_back(new Skill("Fireball"));
+
+    Character* clone = hero.Clone();
+
+    cout << "Original damage: " << hero.weapon->damage << endl;
+    cout << "Clone damage: " << clone->weapon->damage << endl;
+
+    return 0;
+}
