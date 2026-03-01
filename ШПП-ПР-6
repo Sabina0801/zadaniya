@@ -1,0 +1,117 @@
+#include <iostream>
+#include <vector>
+#include <map>
+#include <algorithm>
+using namespace std;
+
+struct TripData {
+    double distance;
+    int passengers;
+    bool businessClass;
+};
+
+class ICostStrategy {
+public:
+    virtual double Calculate(const TripData& d) = 0;
+    virtual ~ICostStrategy() {}
+};
+
+class Plane : public ICostStrategy {
+public:
+    double Calculate(const TripData& d) override {
+        double price = d.distance * 0.5;
+        if (d.businessClass) price *= 1.8;
+        return price * d.passengers;
+    }
+};
+
+class Train : public ICostStrategy {
+public:
+    double Calculate(const TripData& d) override {
+        return d.distance * 0.3 * d.passengers;
+    }
+};
+
+class Bus : public ICostStrategy {
+public:
+    double Calculate(const TripData& d) override {
+        return d.distance * 0.15 * d.passengers;
+    }
+};
+
+class TravelContext {
+    ICostStrategy* strategy = nullptr;
+public:
+    void SetStrategy(ICostStrategy* s) { strategy = s; }
+    double GetPrice(const TripData& d) {
+        if (!strategy) throw runtime_error("Strategy not set");
+        return strategy->Calculate(d);
+    }
+};
+
+
+class IObserver {
+public:
+    virtual void Update(string stock, double price) = 0;
+    virtual ~IObserver() {}
+};
+
+class StockExchange {
+    map<string, vector<IObserver*>> subs;
+public:
+    void Subscribe(string stock, IObserver* obs) {
+        subs[stock].push_back(obs);
+    }
+
+    void SetPrice(string stock, double price) {
+        cout << "Stock " << stock << " = " << price << endl;
+        for (auto o : subs[stock])
+            o->Update(stock, price);
+    }
+};
+
+class Trader : public IObserver {
+public:
+    void Update(string stock, double price) override {
+        cout << "Trader sees " << stock << ": " << price << endl;
+    }
+};
+
+class Robot : public IObserver {
+public:
+    void Update(string stock, double price) override {
+        if (price < 500)
+            cout << "Robot BUY " << stock << endl;
+    }
+};
+
+
+int main() {
+
+    // STRATEGY
+    Plane plane;
+    Train train;
+    Bus bus;
+
+    TravelContext travel;
+    TripData data{1000, 2, true};
+
+    travel.SetStrategy(&plane);
+    cout << "Plane price: " << travel.GetPrice(data) << endl;
+
+    travel.SetStrategy(&train);
+    cout << "Train price: " << travel.GetPrice(data) << endl;
+
+    // OBSERVER
+    StockExchange exchange;
+    Trader trader;
+    Robot robot;
+
+    exchange.Subscribe("AAPL", &trader);
+    exchange.Subscribe("AAPL", &robot);
+
+    exchange.SetPrice("AAPL", 450);
+    exchange.SetPrice("AAPL", 600);
+
+    return 0;
+}
