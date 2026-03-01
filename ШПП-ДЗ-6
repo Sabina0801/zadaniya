@@ -1,0 +1,156 @@
+#include <iostream>
+#include <vector>
+#include <string>
+#include <algorithm>
+
+using namespace std;
+
+class IPaymentStrategy {
+public:
+    virtual void Pay(double amount) = 0;
+    virtual ~IPaymentStrategy() {}
+};
+
+class CardPayment : public IPaymentStrategy {
+public:
+    void Pay(double amount) override {
+        cout << "Kartamen tolem jasaldy: " << amount << " KZT" << endl;
+    }
+};
+
+class PayPalPayment : public IPaymentStrategy {
+public:
+    void Pay(double amount) override {
+        cout << "PayPal arqyly tolem jasaldy: " << amount << " KZT" << endl;
+    }
+};
+
+class CryptoPayment : public IPaymentStrategy {
+public:
+    void Pay(double amount) override {
+        cout << "Kriptovalyutamen tolem jasaldy: " << amount << " KZT" << endl;
+    }
+};
+
+class PaymentContext {
+private:
+    IPaymentStrategy* strategy;
+
+public:
+    void SetStrategy(IPaymentStrategy* newStrategy) {
+        strategy = newStrategy;
+    }
+
+    void ExecutePayment(double amount) {
+        if (strategy) {
+            strategy->Pay(amount);
+        } else {
+            cout << "Tolem strategiyasy tandalgan joq!" << endl;
+        }
+    }
+};
+
+class IObserver {
+public:
+    virtual void Update(double rate) = 0;
+    virtual ~IObserver() {}
+};
+
+class ISubject {
+public:
+    virtual void Attach(IObserver* observer) = 0;
+    virtual void Detach(IObserver* observer) = 0;
+    virtual void Notify() = 0;
+    virtual ~ISubject() {}
+};
+
+class CurrencyExchange : public ISubject {
+private:
+    vector<IObserver*> observers;
+    double usdRate;
+
+public:
+    void Attach(IObserver* observer) override {
+        observers.push_back(observer);
+    }
+
+    void Detach(IObserver* observer) override {
+        observers.erase(remove(observers.begin(), observers.end(), observer), observers.end());
+    }
+
+    void SetRate(double rate) {
+        usdRate = rate;
+        Notify();
+    }
+
+    double GetRate() {
+        return usdRate;
+    }
+
+    void Notify() override {
+        for (auto observer : observers) {
+            observer->Update(usdRate);
+        }
+    }
+};
+
+class BankObserver : public IObserver {
+public:
+    void Update(double rate) override {
+        cout << "[Bank] USD jaña kursy: " << rate << endl;
+    }
+};
+
+class TraderObserver : public IObserver {
+public:
+    void Update(double rate) override {
+        cout << "[Trader] Sauda ushyn jaña kurs: " << rate << endl;
+    }
+};
+
+class MobileAppObserver : public IObserver {
+public:
+    void Update(double rate) override {
+        cout << "[Mobile App] Khabarlama: USD = " << rate << endl;
+    }
+};
+
+int main() {
+
+    cout << "===== STRATEGY PATTERN =====" << endl;
+
+    PaymentContext context;
+    CardPayment card;
+    PayPalPayment paypal;
+    CryptoPayment crypto;
+
+    context.SetStrategy(&card);
+    context.ExecutePayment(10000);
+
+    context.SetStrategy(&paypal);
+    context.ExecutePayment(20000);
+
+    context.SetStrategy(&crypto);
+    context.ExecutePayment(30000);
+
+    cout << endl;
+    cout << "===== OBSERVER PATTERN =====" << endl;
+
+    CurrencyExchange exchange;
+
+    BankObserver bank;
+    TraderObserver trader;
+    MobileAppObserver app;
+
+    exchange.Attach(&bank);
+    exchange.Attach(&trader);
+    exchange.Attach(&app);
+
+    exchange.SetRate(475.5);
+    cout << "--- Trader oshirildi ---" << endl;
+
+    exchange.Detach(&trader);
+    exchange.SetRate(480.2);
+
+    return 0;
+}
