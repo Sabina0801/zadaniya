@@ -1,0 +1,213 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+
+namespace DesignPatternsHomework
+{
+    // ==========================================
+    // 1. ПАТТЕРН КОМАНДА (COMMAND)
+    // ==========================================
+    
+    [cite_start]public interface ICommand [cite: 11, 20]
+    {
+        [cite_start]void Execute(); [cite: 4]
+        [cite_start]void Undo(); [cite: 9]
+    }
+
+    [cite_start]// Receivers (Устройства) [cite: 16, 21]
+    public class Light 
+    {
+        [cite_start]public void On() => Console.WriteLine("Свет включен"); [cite: 13]
+        [cite_start]public void Off() => Console.WriteLine("Свет выключен"); [cite: 13]
+    }
+
+    public class Thermostat 
+    {
+        public int Temperature { get; private set; } = 22;
+        public void SetTemperature(int temp) 
+        {
+            Temperature = temp;
+            [cite_start]Console.WriteLine($"Температура установлена на {Temperature}°C"); [cite: 15]
+        }
+    }
+
+    [cite_start]public class TV // Расширение функционала [cite: 34]
+    {
+        public void On() => Console.WriteLine("Телевизор включен");
+        public void Off() => Console.WriteLine("Телевизор выключен");
+    }
+
+    [cite_start]// Concrete Commands [cite: 12, 22]
+    public class LightCommand : ICommand 
+    {
+        private Light _light;
+        private bool _prevStatus;
+        public LightCommand(Light light) => _light = light;
+        public void Execute() { _light.On(); _prevStatus = true; }
+        public void Undo() => _light.Off();
+    }
+
+    [cite_start]public class TempUpCommand : ICommand [cite: 25]
+    {
+        private Thermostat _thermostat;
+        private int _prevTemp;
+        public TempUpCommand(Thermostat t) => _thermostat = t;
+        public void Execute() { _prevTemp = _thermostat.Temperature; _thermostat.SetTemperature(_prevTemp + 1); }
+        public void Undo() => _thermostat.SetTemperature(_prevTemp);
+    }
+
+    [cite_start]// Invoker [cite: 17, 26]
+    public class RemoteControl 
+    {
+        [cite_start]private Stack<ICommand> _history = new Stack<ICommand>(); [cite: 35]
+
+        public void ExecuteCommand(ICommand command) 
+        {
+            command.Execute();
+            _history.Push(command);
+        }
+
+        public void UndoLast() 
+        {
+            [cite_start]if (_history.Count > 0) [cite: 37]
+            {
+                ICommand command = _history.Pop();
+                command.Undo();
+            }
+            [cite_start]else Console.WriteLine("Ошибка: Нет команд для отмены."); [cite: 37]
+        }
+    }
+
+    // ==========================================
+    // 2. ПАТТЕРН ШАБЛОННЫЙ МЕТОД (TEMPLATE METHOD)
+    // ==========================================
+
+    [cite_start]public abstract class Beverage [cite: 50, 54]
+    {
+        [cite_start]public void PrepareRecipe() // Шаблонный метод [cite: 44]
+        {
+            BoilWater();
+            Brew();
+            PourInCup();
+            if (CustomerWantsCondiments()) AddCondiments();
+        }
+
+        [cite_start]protected void BoilWater() => Console.WriteLine("Кипячение воды..."); [cite: 47]
+        [cite_start]protected void PourInCup() => Console.WriteLine("Наливание в чашку..."); [cite: 47]
+        [cite_start]protected abstract void Brew(); [cite: 48]
+        [cite_start]protected abstract void AddCondiments(); [cite: 48]
+
+        [cite_start]protected virtual bool CustomerWantsCondiments() // Hook [cite: 71]
+        {
+            Console.Write("Добавить добавки? (y/n): ");
+            [cite_start]string input = Console.ReadLine()?.ToLower(); [cite: 67]
+            return input == "y";
+        }
+    }
+
+    [cite_start]public class Tea : Beverage [cite: 51, 55]
+    {
+        protected override void Brew() => Console.WriteLine("Заваривание чая...");
+        protected override void AddCondiments() => Console.WriteLine("Добавление лимона.");
+    }
+
+    [cite_start]public class Coffee : Beverage [cite: 51, 56]
+    {
+        protected override void Brew() => Console.WriteLine("Фильтрация кофе...");
+        protected override void AddCondiments() => Console.WriteLine("Добавление сахара и молока.");
+    }
+
+    [cite_start]public class HotChocolate : Beverage // Расширение функционала [cite: 64]
+    {
+        protected override void Brew() => Console.WriteLine("Растворение какао в горячем молоке...");
+        protected override void AddCondiments() => Console.WriteLine("Добавление маршмэллоу.");
+    }
+
+    // ==========================================
+    // 3. ПАТТЕРН ПОСРЕДНИК (MEDIATOR)
+    // ==========================================
+
+    [cite_start]public interface IMediator [cite: 80, 85]
+    {
+        [cite_start]void SendMessage(string msg, User sender, string receiverName = null); [cite: 96]
+        void RegisterUser(User user);
+    }
+
+    [cite_start]public abstract class User [cite: 82, 87]
+    {
+        protected IMediator _mediator;
+        public string Name { get; }
+        public User(IMediator mediator, string name) { _mediator = mediator; Name = name; }
+        public abstract void Send(string msg, string to = null);
+        public abstract void Receive(string msg, string from);
+    }
+
+    [cite_start]public class ChatRoom : IMediator [cite: 81, 86]
+    {
+        private List<User> _users = new List<User>();
+
+        public void RegisterUser(User user) 
+        {
+            _users.Add(user);
+            [cite_start]Console.WriteLine($"[Система]: {user.Name} вошел в чат."); [cite: 97]
+        }
+
+        public void SendMessage(string msg, User sender, string receiverName = null) 
+        {
+            [cite_start]if (!_users.Contains(sender)) // Обработка ошибок [cite: 99]
+            {
+                Console.WriteLine($"Ошибка: {sender.Name} не состоит в этом чате.");
+                return;
+            }
+
+            [cite_start]if (string.IsNullOrEmpty(receiverName)) // Публичное сообщение [cite: 94]
+            {
+                foreach (var u in _users.Where(u => u != sender)) u.Receive(msg, sender.Name);
+            }
+            [cite_start]else // Личное сообщение [cite: 96]
+            {
+                var receiver = _users.FirstOrDefault(u => u.Name == receiverName);
+                receiver?.Receive($"(Лично) {msg}", sender.Name);
+            }
+        }
+    }
+
+    [cite_start]public class ChatUser : User [cite: 88]
+    {
+        public ChatUser(IMediator m, string n) : base(m, n) { }
+        public override void Send(string msg, string to = null) => _mediator.SendMessage(msg, this, to);
+        public override void Receive(string msg, string from) => Console.WriteLine($"[{Name} получил от {from}]: {msg}");
+    }
+
+    // ==========================================
+    [cite_start]// КЛИЕНТСКИЙ КОД [cite: 18, 52, 83, 89]
+    // ==========================================
+    class Program 
+    {
+        static void Main() 
+        {
+            [cite_start]// 1. Тест Команды [cite: 31]
+            Console.WriteLine("=== КОМАНДА ===");
+            var remote = new RemoteControl();
+            var light = new Light();
+            remote.ExecuteCommand(new LightCommand(light));
+            [cite_start]remote.UndoLast(); [cite: 32]
+            remote.UndoLast(); // Проверка пустой истории [cite: 37]
+
+            [cite_start]// 2. Тест Шаблонного метода [cite: 60, 61]
+            Console.WriteLine("\n=== ШАБЛОННЫЙ МЕТОД ===");
+            Beverage coffee = new Coffee();
+            coffee.PrepareRecipe();
+
+            [cite_start]// 3. Тест Посредника [cite: 92, 93]
+            Console.WriteLine("\n=== ПОСРЕДНИК ===");
+            var chat = new ChatRoom();
+            var user1 = new ChatUser(chat, "Sabina");
+            var user2 = new ChatUser(chat, "AI_Assistant");
+            chat.RegisterUser(user1);
+            chat.RegisterUser(user2);
+            user1.Send("Всем привет!");
+            user2.Send("Привет, Сабина!", "Sabina"); // Личное сообщение [cite: 96]
+        }
+    }
+}
