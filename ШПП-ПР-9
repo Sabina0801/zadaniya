@@ -1,0 +1,74 @@
+import java.util.ArrayList;
+import java.util.List;
+
+// --- ПАТТЕРН ФАСАД (ОТЕЛЬ) ---
+class RoomBookingSystem { void book() { System.out.println("Номер забронирован."); } }
+class RestaurantSystem { 
+    void orderFood() { System.out.println("Еда заказана."); } 
+    void callTaxi() { System.out.println("Такси в пути."); }
+}
+class CleaningService { void schedule() { System.out.println("Уборка назначена."); } }
+
+class HotelFacade {
+    private RoomBookingSystem rooms = new RoomBookingSystem();
+    private RestaurantSystem rest = new RestaurantSystem();
+    private CleaningService cleaning = new CleaningService();
+
+    public void bookFullStay() {
+        System.out.println("\nБронирование 'Все включено':");
+        rooms.book();
+        rest.orderFood();
+        cleaning.schedule();
+    }
+    
+    public void reserveTableWithTaxi() {
+        System.out.println("\nУжин вне номера:");
+        rest.orderFood();
+        rest.callTaxi();
+    }
+}
+
+// --- ПАТТЕРН КОМПОНОВЩИК (ОРГАНИЗАЦИЯ) ---
+abstract class OrganizationComponent {
+    String name;
+    public OrganizationComponent(String name) { this.name = name; }
+    abstract void display(int level);
+    abstract double getBudget();
+}
+
+class Employee extends OrganizationComponent {
+    private double salary;
+    public Employee(String name, double salary) { super(name); this.salary = salary; }
+    void display(int level) { System.out.println("  ".repeat(level) + "Сотрудник: " + name + " ($" + salary + ")"); }
+    double getBudget() { return salary; }
+}
+
+class Department extends OrganizationComponent {
+    private List<OrganizationComponent> children = new ArrayList<>();
+    public Department(String name) { super(name); }
+    public void add(OrganizationComponent c) { children.add(c); }
+    void display(int level) {
+        System.out.println("  ".repeat(level) + "Отдел: " + name);
+        for (OrganizationComponent c : children) c.display(level + 1);
+    }
+    double getBudget() { return children.stream().mapToDouble(OrganizationComponent::getBudget).sum(); }
+}
+
+public class PracticeModule09 {
+    public static void main(String[] args) {
+        // Тест Фасада
+        HotelFacade hotel = new HotelFacade();
+        hotel.bookFullStay();
+
+        // Тест Компоновщика
+        Department university = new Department("Satbayev University");
+        Department itDept = new Department("IT Dept");
+        itDept.add(new Employee("Sabina", 3000));
+        itDept.add(new Employee("Ivan", 2500));
+        university.add(itDept);
+        university.add(new Employee("Rector", 5000));
+        
+        university.display(0);
+        System.out.println("Общий бюджет: $" + university.getBudget());
+    }
+}
