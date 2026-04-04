@@ -1,0 +1,106 @@
+import java.util.ArrayList;
+import java.util.List;
+
+// --- ПАТТЕРН ФАСАД ---
+class TV {
+    void on() { System.out.println("ТВ: Включен"); }
+    void off() { System.out.println("ТВ: Выключен"); }
+    void setChannel(int c) { System.out.println("ТВ: Канал " + c); }
+}
+
+class AudioSystem {
+    void on() { System.out.println("Аудио: Включено"); }
+    void off() { System.out.println("Аудио: Выключено"); }
+    void setVolume(int v) { System.out.println("Аудио: Громкость " + v); }
+}
+
+class DVDPlayer {
+    void play() { System.out.println("DVD: Воспроизведение"); }
+    void stop() { System.out.println("DVD: Остановка"); }
+}
+
+class GameConsole {
+    void on() { System.out.println("Консоль: Включена"); }
+    void startGame(String game) { System.out.println("Консоль: Запуск " + game); }
+}
+
+class HomeTheaterFacade {
+    private TV tv;
+    private AudioSystem audio;
+    private DVDPlayer dvd;
+    private GameConsole console;
+
+    public HomeTheaterFacade(TV tv, AudioSystem audio, DVDPlayer dvd, GameConsole console) {
+        this.tv = tv;
+        this.audio = audio;
+        this.dvd = dvd;
+        this.console = console;
+    }
+
+    public void watchMovie() {
+        System.out.println("\nГотовим кинотеатр...");
+        tv.on();
+        audio.on();
+        dvd.play();
+    }
+
+    public void playGame(String game) {
+        System.out.println("\nЗапускаем игру...");
+        tv.on();
+        console.on();
+        console.startGame(game);
+    }
+
+    public void stopAll() {
+        System.out.println("\nВыключаем всё...");
+        tv.off();
+        audio.off();
+    }
+}
+
+// --- ПАТТЕРН КОМПОНОВЩИК ---
+interface FileSystemComponent {
+    void display(String indent);
+    int getSize();
+}
+
+class File implements FileSystemComponent {
+    private String name;
+    private int size;
+    public File(String name, int size) { this.name = name; this.size = size; }
+    public void display(String indent) { System.out.println(indent + " - Файл: " + name + " (" + size + "KB)"); }
+    public int getSize() { return size; }
+}
+
+class Directory implements FileSystemComponent {
+    private String name;
+    private List<FileSystemComponent> components = new ArrayList<>();
+    public Directory(String name) { this.name = name; }
+    
+    public void add(FileSystemComponent c) { if(!components.contains(c)) components.add(c); }
+    public void display(String indent) {
+        System.out.println(indent + "+ Папка: " + name);
+        for (FileSystemComponent c : components) c.display(indent + "  ");
+    }
+    public int getSize() {
+        return components.stream().mapToInt(FileSystemComponent::getSize).sum();
+    }
+}
+
+public class HomeworkModule09 {
+    public static void main(String[] args) {
+        // Тест Фасада
+        HomeTheaterFacade homeTheater = new HomeTheaterFacade(new TV(), new AudioSystem(), new DVDPlayer(), new GameConsole());
+        homeTheater.watchMovie();
+        homeTheater.playGame("Starfield");
+
+        // Тест Компоновщика
+        Directory root = new Directory("Main");
+        root.add(new File("Note.txt", 10));
+        Directory sub = new Directory("Movies");
+        sub.add(new File("Movie1.mp4", 500));
+        root.add(sub);
+        root.display("");
+        System.out.println("Общий размер: " + root.getSize() + " KB");
+    }
+}
