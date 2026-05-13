@@ -1,0 +1,52 @@
+interface Product {
+    void use();
+}
+
+class ConcreteProductA implements Product {
+    public void use() {
+        System.out.println("Product A");
+    }
+}
+
+class ConcreteProductB implements Product {
+    public void use() {
+        System.out.println("Product B");
+    }
+}
+
+abstract class Creator {
+    public abstract Product factoryMethod(String type);
+    
+    public void someOperation(String type) {
+        Product product = factoryMethod(type);
+        if (product != null) {
+            product.use();
+        }
+    }
+}
+
+class ConcreteCreator extends Creator {
+    @Override
+    public Product factoryMethod(String type) {
+        if (type == null) {
+            return null;
+        }
+        switch (type.toUpperCase()) {
+            case "A":
+                return new ConcreteProductA();
+            case "B":
+                return new ConcreteProductB();
+            default:
+                throw new IllegalArgumentException("Unsupported type: " + type);
+        }
+    }
+}
+
+public class Main {
+    public static void main(String[] args) {
+        Creator creator = new ConcreteCreator();
+        
+        creator.someOperation("A");
+        creator.someOperation("B");
+    }
+}
